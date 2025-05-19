@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.5.1)
 project(driver_stim300)
+if (CATKIN_ENABLE_TESTING)
+  enable_testing()
+endif()
 
 set(CMAKE_CXX_STANDARD 14)
 

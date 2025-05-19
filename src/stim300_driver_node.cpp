@@ -16,9 +16,9 @@ constexpr double MAX_DROPPED_ACC_Z_MSG{5};
 constexpr double MAX_DROPPED_GYRO_X_MSG{5};
 constexpr double MAX_DROPPED_GYRO_Y_MSG{5};
 constexpr double MAX_DROPPED_GYRO_Z_MSG{5};
-constexpr double GYRO_X_PEAK_TO_PEAK_NOISE{0.0002};
-constexpr double GYRO_Y_PEAK_TO_PEAK_NOISE{0.0002};
-constexpr double GYRO_Z_PEAK_TO_PEAK_NOISE{0.0002};
+constexpr double GYRO_X_PEAK_TO_PEAK_NOISE{0.002};
+constexpr double GYRO_Y_PEAK_TO_PEAK_NOISE{0.002};
+constexpr double GYRO_Z_PEAK_TO_PEAK_NOISE{0.002};
 
 struct Quaternion
 {
@@ -110,7 +110,7 @@ int main(int argc, char** argv)
   ros::Rate loop_rate(sample_rate * 2);
 
   try {
-    SerialUnix serial_driver(device_name, stim_const::BaudRate::BAUD_921600);
+    SerialUnix serial_driver(device_name, stim_const::BaudRate::BAUD_460800);
     DriverStim300 driver_stim300(serial_driver);
 
     ROS_INFO("STIM300 IMU driver initialized successfully");
@@ -167,12 +167,12 @@ int main(int argc, char** argv)
               EulerAngles RPY;
            if (calibration_mode == true)
             {
-              //std::cout<<"in calibration_mode"<<std::endl;
+              std::cout<<"in calibration_mode"<<std::endl;
                 if(number_of_samples < NUMBER_OF_CALIBRATION_SAMPLES)
                 {
-                    //std::cout<<"in calibration_mode"<<std::endl;
+                    std::cout<<"in calibration_mode"<<std::endl;
                     number_of_samples++;
-                    //std::cout<<number_of_samples<<std::endl;
+                    std::cout<<"num of samples" << number_of_samples<<std::endl;
                     inclination_x_calibration_sum += inclination_x;
                     inclination_y_calibration_sum += inclination_y;
                     inclination_z_calibration_sum += inclination_z;
@@ -180,7 +180,7 @@ int main(int argc, char** argv)
                 }
                 else
                 {
-                    //std::cout<<"in else"<<std::endl;
+                    std::cout<<"in else"<<std::endl;
                     inclination_x_average = inclination_x_calibration_sum/NUMBER_OF_CALIBRATION_SAMPLES;
                     inclination_y_average = inclination_y_calibration_sum/NUMBER_OF_CALIBRATION_SAMPLES;
                     inclination_z_average = inclination_z_calibration_sum/NUMBER_OF_CALIBRATION_SAMPLES;
@@ -318,7 +318,8 @@ int main(int argc, char** argv)
         case Stim300Status::CONFIG_CHANGED:
           ROS_INFO("Updated Stim 300 imu config: ");
           ROS_INFO("%s", driver_stim300.printSensorConfig().c_str());
-          loop_rate = driver_stim300.getSampleRate()*2;
+          //loop_rate = driver_stim300.getSampleRate()*2; // WRONG: assigning an int to ros::Rate
+          loop_rate = ros::Rate(driver_stim300.getSampleRate() * 2);
           break;
         case Stim300Status::STARTING_SENSOR:
           ROS_INFO("Stim 300 IMU is warming up.");

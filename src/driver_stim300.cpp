@@ -200,8 +200,8 @@ Stim300Status DriverStim300::update() noexcept {
   case Mode::Normal:
     return readDataStream();
   case Mode::Service:
-    // std::string s(buffer_.begin(), buffer_.end());
-    // std::cout << s << "\n";
+     std::string s(buffer_.begin(), buffer_.end());
+     std::cout << s << "\n";
     mode_ = Mode::Normal;
     return Stim300Status::NORMAL;
   }
@@ -211,6 +211,7 @@ bool DriverStim300::setDatagramFormat(DatagramIdentifier id) {
   datagram_id_ = datagramIdentifierToRaw(id);
   datagram_size_ = calculateDatagramSize(id);
   crc_dummy_bytes_ = numberOfPaddingBytes(id);
+  return true;
 }
 
 bool DriverStim300::verifyChecksum(
