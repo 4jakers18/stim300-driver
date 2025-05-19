@@ -77,6 +77,7 @@ int main(int argc, char** argv)
   int sample_rate{0};
   double gravity{0};
   bool calibrate_on_start{false};
+  double roll_offset{0}, pitch_offset{0};
   pnh.param<std::string>("device_name", device_name, "/dev/ttyUSB0");
   pnh.param<std::string>("frame_id", frame_id, "imu_0");
   pnh.param("variance_gyro", variance_gyro, 0.0001 * 2 * 4.6 * pow(10, -4));
@@ -84,6 +85,12 @@ int main(int argc, char** argv)
   pnh.param("sample_rate", sample_rate, 125);
   pnh.param("gravity", gravity, 9.80665);
   pnh.param("calibrate_on_start", calibrate_on_start, false);
+  pnh.param("roll_offset", roll_offset, 0.0);
+  pnh.param("pitch_offset", pitch_offset, 0.0);
+
+
+
+
   // These values have been estimated by having beluga in a pool for a couple of minutes, and then calculate the variance for each values
   sensor_msgs::Imu stim300msg{};
   stim300msg.angular_velocity_covariance[0] = 0.0000027474;
@@ -196,6 +203,14 @@ if (calibrate_on_start) {
                     ROS_INFO("STIM300 IMU Calibrated");
                     ROS_INFO("STIM300 average calibration ROLL offset: %f", average_calibration_roll);
                     ROS_INFO("STIM300 average calibration PITCH offset: %f", average_calibration_pitch);
+                    roll_offset  = average_calibration_roll;
+                    pitch_offset = average_calibration_pitch;
+                    pnh.setParam("roll_offset",  roll_offset);
+                    pnh.setParam("pitch_offset", pitch_offset);
+                    number_of_samples = 0;
+                    inclination_x_calibration_sum = 0.0;
+                    inclination_y_calibration_sum = 0.0;
+                    inclination_z_calibration_sum = 0.0;
 
                     calibration_mode = false;
                 }
@@ -203,8 +218,15 @@ if (calibrate_on_start) {
             }
             else
             {
-                    RPY.roll = atan2(inclination_y,inclination_z);
-                    RPY.pitch = atan2(-inclination_x,sqrt(pow(inclination_y,2)+pow(inclination_z,2)));
+                    // RPY.roll = atan2(inclination_y,inclination_z);
+                    // RPY.pitch = atan2(-inclination_x,sqrt(pow(inclination_y,2)+pow(inclination_z,2)));
+                    // q = FromRPYToQuaternion(RPY);
+                    double raw_roll  = atan2(inclination_y, inclination_z) - roll_offset;
+                    double raw_pitch = atan2(-inclination_x,sqrt(pow(inclination_y,2)+pow(inclination_z,2))) - pitch_offset;
+                    RPY.roll  = raw_roll;
+                    RPY.pitch = raw_pitch;
+                    RPY.yaw   = 0.0;
+
                     q = FromRPYToQuaternion(RPY);
 
                     // Acceleration wild point filter
