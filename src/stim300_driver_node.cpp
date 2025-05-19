@@ -68,22 +68,22 @@ int main(int argc, char** argv)
   ros::init(argc, argv, "stim300_driver_node");
 
   ros::NodeHandle node;
+  ros::NodeHandle pnh("~");    // for private params
 
   std::string device_name;
+  std::string frame_id;
   double variance_gyro{0};
   double variance_acc{0};
   int sample_rate{0};
   double gravity{0};
-
-
-  node.param<std::string>("device_name", device_name, "/dev/ttyUSB0");
-
-  node.param("variance_gyro", variance_gyro,0.0001*2*4.6*pow(10,-4));
-  node.param("variance_acc", variance_acc, 0.000055); 
-  node.param("sample_rate", sample_rate, 125);
-
-  node.param("gravity", gravity, 9.80665);
-
+  bool calibrate_on_start{false};
+  pnh.param<std::string>("device_name", device_name, "/dev/ttyUSB0");
+  pnh.param<std::string>("frame_id", frame_id, "imu_0");
+  pnh.param("variance_gyro", variance_gyro, 0.0001 * 2 * 4.6 * pow(10, -4));
+  pnh.param("variance_acc", variance_acc, 0.000055);
+  pnh.param("sample_rate", sample_rate, 125);
+  pnh.param("gravity", gravity, 9.80665);
+  pnh.param("calibrate_on_start", calibrate_on_start, false);
   // These values have been estimated by having beluga in a pool for a couple of minutes, and then calculate the variance for each values
   sensor_msgs::Imu stim300msg{};
   stim300msg.angular_velocity_covariance[0] = 0.0000027474;
@@ -95,8 +95,12 @@ int main(int argc, char** argv)
   stim300msg.orientation.x = 0.00000024358;
   stim300msg.orientation.y = 0.00000024358;
   stim300msg.orientation.z = 0.00000024358;
-  stim300msg.header.frame_id = "imu_0";
+  stim300msg.header.frame_id = frame_id;
 
+if (calibrate_on_start) {
+  ROS_INFO("Auto-calibration requested at startup, entering calibration mode...");
+  calibration_mode = true;
+}
 
   ros::Publisher imuSensorPublisher = node.advertise<sensor_msgs::Imu>("imu/data_raw", 1000);
   //ros::Publisher orientationPublisher = node.advertise<sensor_msgs::Imu>("imu/orientation", 1000);
@@ -167,12 +171,12 @@ int main(int argc, char** argv)
               EulerAngles RPY;
            if (calibration_mode == true)
             {
-              std::cout<<"in calibration_mode"<<std::endl;
+              // std::cout<<"in calibration_mode"<<std::endl;
                 if(number_of_samples < NUMBER_OF_CALIBRATION_SAMPLES)
                 {
-                    std::cout<<"in calibration_mode"<<std::endl;
+                    // std::cout<<"in calibration_mode"<<std::endl;
                     number_of_samples++;
-                    std::cout<<"num of samples" << number_of_samples<<std::endl;
+                    // std::cout<<"num of samples" << number_of_samples<<std::endl;
                     inclination_x_calibration_sum += inclination_x;
                     inclination_y_calibration_sum += inclination_y;
                     inclination_z_calibration_sum += inclination_z;
@@ -180,18 +184,19 @@ int main(int argc, char** argv)
                 }
                 else
                 {
-                    std::cout<<"in else"<<std::endl;
+                    // std::cout<<"in else"<<std::endl;
                     inclination_x_average = inclination_x_calibration_sum/NUMBER_OF_CALIBRATION_SAMPLES;
                     inclination_y_average = inclination_y_calibration_sum/NUMBER_OF_CALIBRATION_SAMPLES;
                     inclination_z_average = inclination_z_calibration_sum/NUMBER_OF_CALIBRATION_SAMPLES;
 
                     average_calibration_roll = atan2(inclination_y_average,inclination_z_average);
                     average_calibration_pitch = atan2(-inclination_x_average,sqrt(pow(inclination_y_average,2)+pow(inclination_z_average,2)));
-                    std::cout<<average_calibration_roll<<std::endl;
-                    std::cout<<average_calibration_pitch<<std::endl;
-                    ROS_INFO("roll: %f", average_calibration_roll);
-                    ROS_INFO("pitch: %f", average_calibration_pitch);
-                    ROS_INFO("IMU Calibrated");
+                    // std::cout<<average_calibration_roll<<std::endl;
+                    // std::cout<<average_calibration_pitch<<std::endl;
+                    ROS_INFO("STIM300 IMU Calibrated");
+                    ROS_INFO("STIM300 average calibration ROLL offset: %f", average_calibration_roll);
+                    ROS_INFO("STIM300 average calibration PITCH offset: %f", average_calibration_pitch);
+
                     calibration_mode = false;
                 }
               break;  

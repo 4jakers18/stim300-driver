@@ -1,7 +1,11 @@
 <launch>
-  <node name="stim300driver" pkg="driver_stim300" type="stim300_driver_node"   output="screen"   />
-  <param name = "device_name" value="/dev/ttyUSB0" type="string" />
-  <param name = "stanard_deviation_of_gyro" value="0.0004" type="double" />
-  <param name = "stanard_deviation_of_acc" value="0.004" type="double" />
-  <param name = "sample_rate" value="125" type="double" />
+  <arg name="calibrate_on_start" default="true"/>
+  <node name="stim300driver" pkg="driver_stim300" type="stim300_driver_node"   output="screen"   >
+    <param name="calibrate_on_start" value="$(arg calibrate_on_start)"/>
+    <param name = "device_name" value="/dev/ttyUSB0" type="string" /> <!-- Serial port name, need to make a udev rule-->
+    <param name="frame_id" value="stim300_link" type="string" />
+    <param name = "stanard_deviation_of_gyro" value="0.0004" type="double" />
+    <param name = "stanard_deviation_of_acc" value="0.004" type="double" />
+    <param name = "sample_rate" value="125" type="double" />
+  </node>
 </launch>

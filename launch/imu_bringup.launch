@@ -1,0 +1,14 @@
+<launch>
+
+
+	<arg name="target_frame" default="base_link"/>
+    <!-- Launch the IMU transformer node -->
+    <node pkg="imu_transformer" type="imu_transformer_node" name="imu_transformer_node" output="screen">
+        <remap from="imu_in/data" to="imu/data_raw" />
+        <remap from="imu_out/data" to="imu/data"/>
+		<param name="target_frame" value="$(arg target_frame)"/>
+    </node>
+
+        <!-- Include driver launch file -->
+    <include file="$(find driver_stim300)/launch/stim300_driver.launch" />
+</launch>
