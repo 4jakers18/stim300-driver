@@ -5,10 +5,23 @@
     <!-- Launch the IMU transformer node -->
     <node pkg="imu_transformer" type="imu_transformer_node" name="imu_transformer_node" output="screen">
         <remap from="imu_in/data" to="imu/data_raw" />
-        <remap from="imu_out/data" to="imu/data"/>
+        <remap from="imu_out/data" to="imu/data_unfiltered"/>
 		<param name="target_frame" value="$(arg target_frame)"/>
     </node>
 
         <!-- Include driver launch file -->
     <include file="$(find driver_stim300)/launch/stim300_driver.launch" />
+
+
+    <!-- Launch the imu_filter_madgwick node -->
+    <node pkg="imu_filter_madgwick" type="imu_filter_node" name="imu_filter_madgwick" output="screen">
+        <remap from="imu/data_raw" to="imu/data_unfiltered"/>
+        <remap from="imu/data" to="imu/data"/>
+        <param name="~use_mag" value="false"/>
+        <param name="~world_frame" value="enu"/>
+        <param name="~publish_tf" value="false"/>
+        <param name="~remove_gravity_vector" value="true"/>
+        <param name="~gain" value="0.1"/>
+        <param name="~zeta" value="0.0"/>
+    </node>
 </launch>

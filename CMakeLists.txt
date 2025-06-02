@@ -25,6 +25,7 @@ find_package(catkin REQUIRED COMPONENTS
         sensor_msgs
 	std_srvs
         )
+find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 catkin_package(
         CATKIN_DEPENDS sensor_msgs std_srvs
 )
@@ -32,7 +33,8 @@ catkin_package(
 add_executable(stim300_driver_node src/stim300_driver_node.cpp)
 target_include_directories(stim300_driver_node
         PRIVATE
-        ${catkin_INCLUDE_DIRS})
+        ${catkin_INCLUDE_DIRS}
+        ${EIGEN3_INCLUDE_DIRS})
 target_link_libraries(stim300_driver_node PRIVATE stim300_driver_lib ${catkin_LIBRARIES})
 
 

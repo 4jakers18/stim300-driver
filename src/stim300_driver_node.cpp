@@ -6,9 +6,11 @@
 #include "std_srvs/Trigger.h"
 #include "std_srvs/Empty.h"
 #include "iostream"
+#include <Eigen/Dense>
+#include <vector>
 
 bool calibration_mode{false};
-constexpr int NUMBER_OF_CALIBRATION_SAMPLES{100};
+constexpr int NUMBER_OF_CALIBRATION_SAMPLES{500};
 constexpr double ACC_TOLERANCE{0.1};
 constexpr double MAX_DROPPED_ACC_X_MSG{5};
 constexpr double MAX_DROPPED_ACC_Y_MSG{5};
@@ -19,6 +21,26 @@ constexpr double MAX_DROPPED_GYRO_Z_MSG{5};
 constexpr double GYRO_X_PEAK_TO_PEAK_NOISE{0.002};
 constexpr double GYRO_Y_PEAK_TO_PEAK_NOISE{0.002};
 constexpr double GYRO_Z_PEAK_TO_PEAK_NOISE{0.002};
+// for covariance calculation
+std::vector<Eigen::Vector3d> acc_cal_samples;
+std::vector<Eigen::Vector3d> gyro_cal_samples;
+//for calibration
+int number_of_samples{0};
+
+// helper: unbiased covariance
+Eigen::Matrix3d computeCovariance(const std::vector<Eigen::Vector3d>& data) {
+  const int N = data.size();
+  Eigen::Vector3d mean = Eigen::Vector3d::Zero();
+  for (auto& v : data) mean += v;
+  mean /= double(N);
+
+  Eigen::Matrix3d cov = Eigen::Matrix3d::Zero();
+  for (auto& v : data) {
+    Eigen::Vector3d d = v - mean;
+    cov += d * d.transpose();
+  }
+  return cov / double(N - 1);
+}
 
 struct Quaternion
 {
@@ -55,6 +77,9 @@ bool responseCalibrateIMU(std_srvs::Trigger::Request &calibration_request, std_s
     if (calibration_mode == false)
     {
         calibration_mode = true;
+        acc_cal_samples.clear();
+        gyro_cal_samples.clear();
+        number_of_samples = 0;
         calibration_response.message = "IMU in calibration mode ";
         calibration_response.success = true;
     }
@@ -99,9 +124,12 @@ int main(int argc, char** argv)
   stim300msg.linear_acceleration_covariance[0] = 0.00041915;
   stim300msg.linear_acceleration_covariance[4] = 0.00041915;
   stim300msg.linear_acceleration_covariance[8] = 0.000018995;
-  stim300msg.orientation.x = 0.00000024358;
-  stim300msg.orientation.y = 0.00000024358;
-  stim300msg.orientation.z = 0.00000024358;
+  // stim300msg.orientation.x = 0.00000024358;
+  // stim300msg.orientation.y = 0.00000024358;
+  // stim300msg.orientation.z = 0.00000024358;
+  stim300msg.orientation.x = 0.0;
+  stim300msg.orientation.y = 0.0;
+  stim300msg.orientation.z = 0.0;
   stim300msg.header.frame_id = frame_id;
 
 if (calibrate_on_start) {
@@ -128,7 +156,6 @@ if (calibrate_on_start) {
 
     int difference_in_dataGram{0};
     int count_messages{0};
-    int number_of_samples{0};
     double inclination_x{0};
     double inclination_y{0};
     double inclination_z{0};
@@ -187,7 +214,17 @@ if (calibrate_on_start) {
                     inclination_x_calibration_sum += inclination_x;
                     inclination_y_calibration_sum += inclination_y;
                     inclination_z_calibration_sum += inclination_z;
-
+                  // store raw (m/s²) and gyro (rad/s)
+                    acc_cal_samples.emplace_back(
+                      driver_stim300.getAccX() * gravity,
+                      driver_stim300.getAccY() * gravity,
+                      driver_stim300.getAccZ() * gravity
+                    );
+                    gyro_cal_samples.emplace_back(
+                      driver_stim300.getGyroX(),
+                      driver_stim300.getGyroY(),
+                      driver_stim300.getGyroZ()
+                    );
                 }
                 else
                 {
@@ -211,7 +248,33 @@ if (calibrate_on_start) {
                     inclination_x_calibration_sum = 0.0;
                     inclination_y_calibration_sum = 0.0;
                     inclination_z_calibration_sum = 0.0;
+                  // now compute covariances:
+                    Eigen::Matrix3d acc_cov  = computeCovariance(acc_cal_samples);
+                    Eigen::Matrix3d gyro_cov = computeCovariance(gyro_cal_samples);
 
+                    // inject into your IMU message template:
+                    stim300msg.linear_acceleration_covariance[0] = acc_cov(0,0);
+                    stim300msg.linear_acceleration_covariance[1] = acc_cov(0,1);
+                    stim300msg.linear_acceleration_covariance[2] = acc_cov(0,2);
+                    stim300msg.linear_acceleration_covariance[3] = acc_cov(1,0);
+                    stim300msg.linear_acceleration_covariance[4] = acc_cov(1,1);
+                    stim300msg.linear_acceleration_covariance[5] = acc_cov(1,2);
+                    stim300msg.linear_acceleration_covariance[6] = acc_cov(2,0);
+                    stim300msg.linear_acceleration_covariance[7] = acc_cov(2,1);
+                    stim300msg.linear_acceleration_covariance[8] = acc_cov(2,2);
+
+                    stim300msg.angular_velocity_covariance[0] = gyro_cov(0,0);
+                    stim300msg.angular_velocity_covariance[1] = gyro_cov(0,1);
+                    stim300msg.angular_velocity_covariance[2] = gyro_cov(0,2);
+                    stim300msg.angular_velocity_covariance[3] = gyro_cov(1,0);
+                    stim300msg.angular_velocity_covariance[4] = gyro_cov(1,1);
+                    stim300msg.angular_velocity_covariance[5] = gyro_cov(1,2);
+                    stim300msg.angular_velocity_covariance[6] = gyro_cov(2,0);
+                    stim300msg.angular_velocity_covariance[7] = gyro_cov(2,1);
+                    stim300msg.angular_velocity_covariance[8] = gyro_cov(2,2);
+
+                    ROS_INFO("Computed covariances: Acc[0,0]=%.6f Gyro[0,0]=%.6f",
+                            acc_cov(0,0), gyro_cov(0,0));
                     calibration_mode = false;
                 }
               break;  
